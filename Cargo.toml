@@ -1,0 +1,32 @@
+# Mirror-owned workspace root. The crate manifests under crates/ are mirrored
+# byte-identical from ballast-ai/token-station and inherit every workspace.*
+# key below, so this file must track upstream's root manifest on every sync
+# (see docs/design/mirroring.md, "Workspace assembly rules"). Deliberate
+# divergences from upstream: `repository` points at this mirror, and `publish`
+# is true (upstream keeps false only because unversioned path dependencies
+# cannot pass `cargo publish`; actually publishing router-core to crates.io
+# would still need a version on its path dependency first — an upstream call).
+[workspace]
+resolver = "2"
+members = [
+    "crates/protocol",
+    "crates/router-core",
+]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/ballast-ai/token-station-kernel"
+rust-version = "1.95"
+publish = true
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
