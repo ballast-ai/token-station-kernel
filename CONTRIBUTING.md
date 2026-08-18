@@ -27,12 +27,14 @@ All four must pass before any commit. `check-boundaries.sh` needs `git`,
 
 ## Syncing from upstream (maintainers)
 
-The procedure, including how the cut point is chosen and how
-`compatibility.json` is updated, is documented in
-[docs/design/mirroring.md](docs/design/mirroring.md). In short: subtree-split
-both prefixes at a released upstream tag, `git subtree pull` each into this
-repository, update `mirror.*` in `compatibility.json` to the new tag/commit
-and tree hashes, run all gates, and tag a new `v0.x` release.
+Run `scripts/sync-upstream.sh --tag <upstream-tag>` — it splits both prefixes
+at the released upstream tag, subtree-pulls them in, verifies byte-identity,
+updates `mirror.*` in `compatibility.json`, and runs all gates, leaving
+review, the `v0.x` tag, and the push to you. The design and the underlying
+manual commands are documented in
+[docs/design/mirroring.md](docs/design/mirroring.md). A weekly CI job
+(`upstream-freshness`) fails when upstream has released a tag the mirror
+doesn't yet reflect.
 
 ## Commit style
 

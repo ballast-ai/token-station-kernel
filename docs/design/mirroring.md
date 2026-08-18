@@ -40,6 +40,13 @@ commit, not just the tag.
 
 ## Sync procedure
 
+The whole procedure below is automated by **`scripts/sync-upstream.sh --tag
+<upstream-tag>`** (idempotent; verifies byte-identity; updates
+`compatibility.json`; runs the gates; leaves review/tag/push to the
+maintainer). A weekly `upstream-freshness` CI job fails when upstream has a
+newer release tag than the mirror records. The manual commands are kept here
+as the explanation of what the script does.
+
 Initial import (already done, kept for reference):
 
 ```bash
