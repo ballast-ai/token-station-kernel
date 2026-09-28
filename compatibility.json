@@ -23,6 +23,6 @@
     "canonical_ir": "\u8be5\u69fd\u4f4d\u7531\u672c\u4ed3\u62e5\u6709\uff0ctoken-station-south \u7684 compatibility.json \u4fdd\u7559\u4e3a null\u3002\u7248\u672c 2 \u8986\u76d6 token-station-protocol 0.4.0 \u7684\u5b8c\u6574\u516c\u5171\u9762\u3002",
     "router_config": "Tracks router-core's CONFIG_VERSION constant; the boundary gate cross-checks the two on every run.",
     "error_catalog": "The ErrorCode catalog with retry semantics kept beside it (13 variants at this mirror state).",
-    "stream": "\u7248\u672c 2 \u65b0\u589e\u5e26 index \u7684 RedactedThinking\uff1bThinkingDelta\u3001ThinkingSignatureDelta \u4e0e RedactedThinking \u7684 index \u5747\u4e3a\u4f9b\u5e94\u5546 content block \u7684\u5e8f\u53f7\u3002"
+    "stream": "\u7248\u672c 2 \u7684 reasoning \u4e8b\u4ef6\u4fdd\u7559 index \u4f5c\u4e3a choice index\uff0c\u5e76\u65b0\u589e block_index \u8868\u793a\u4f9b\u5e94\u5546 content block \u5e8f\u53f7\uff1b\u65e7 wire \u7f3a\u5c11 block_index \u65f6\u517c\u5bb9\u89e3\u7801\u4e3a 0\u3002"
   }
 }
