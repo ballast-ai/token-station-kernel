@@ -109,6 +109,25 @@ assert_branch_cannot_impersonate_tag() {
     }
 }
 
+assert_lightweight_tag_cannot_impersonate_annotated_tag() {
+    local upstream="$TMP/upstream-lightweight" mirror="$TMP/mirror-lightweight"
+    init_upstream "$upstream"
+    git -C "$upstream" tag kernel-v9.9.4
+    init_mirror "$mirror" "$upstream" kernel-v9.9.4 0.3.0
+
+    if "$mirror/scripts/sync-upstream.sh" \
+        --tag kernel-v9.9.4 --upstream "$upstream" --no-verify \
+        >"$TMP/lightweight.out" 2>"$TMP/lightweight.err"; then
+        echo "FAIL: a lightweight tag impersonated an annotated tag" >&2
+        return 1
+    fi
+    grep -q "annotated tag" "$TMP/lightweight.err" || {
+        echo "FAIL: lightweight-tag rejection did not explain the requirement" >&2
+        cat "$TMP/lightweight.err" >&2
+        return 1
+    }
+}
+
 assert_release_updates_at_same_source_commit() {
     local upstream="$TMP/upstream-release" mirror="$TMP/mirror-release"
     init_upstream "$upstream"
@@ -127,6 +146,75 @@ assert_release_updates_at_same_source_commit() {
     fi
     git -C "$mirror" log -1 --format=%s | grep -q "record mirror state" || {
         echo "FAIL: release-only update was not committed" >&2
+        return 1
+    }
+}
+
+assert_source_tag_updates_at_same_source_commit() {
+    local upstream="$TMP/upstream-source-tag" mirror="$TMP/mirror-source-tag"
+    init_upstream "$upstream"
+    git -C "$upstream" tag -am "old kernel source" kernel-v9.9.5
+    git -C "$upstream" tag -am "new kernel source" kernel-v9.9.6
+    init_mirror "$mirror" "$upstream" kernel-v9.9.5 0.3.0
+
+    "$mirror/scripts/sync-upstream.sh" \
+        --tag kernel-v9.9.6 --upstream "$upstream" --no-verify \
+        >"$TMP/source-tag.out" 2>"$TMP/source-tag.err"
+    local recorded
+    recorded=$(python3 -c \
+        "import json; print(json.load(open('$mirror/compatibility.json'))['mirror']['source_tag'])")
+    if [ "$recorded" != "kernel-v9.9.6" ]; then
+        echo "FAIL: same source commit left mirror.source_tag at $recorded" >&2
+        return 1
+    fi
+    git -C "$mirror" log -1 --format=%s | grep -q "kernel-v9.9.6" || {
+        echo "FAIL: source-tag-only update was not committed" >&2
+        return 1
+    }
+}
+
+assert_true_noop_runs_compatibility_and_boundary() {
+    local upstream="$TMP/upstream-noop" mirror="$TMP/mirror-noop"
+    init_upstream "$upstream"
+    git -C "$upstream" tag -am "kernel source" kernel-v9.9.7
+    init_mirror "$mirror" "$upstream" kernel-v9.9.7 0.3.0
+    cat >"$mirror/scripts/check-boundaries.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+: > boundary.called
+EOF
+    chmod +x "$mirror/scripts/check-boundaries.sh"
+    git -C "$mirror" add scripts/check-boundaries.sh
+    git -C "$mirror" commit -qm "instrument boundary gate"
+    local before_head after_head
+    before_head=$(git -C "$mirror" rev-parse HEAD)
+
+    "$mirror/scripts/sync-upstream.sh" \
+        --tag kernel-v9.9.7 --upstream "$upstream" --no-verify \
+        >"$TMP/noop.out" 2>"$TMP/noop.err"
+    after_head=$(git -C "$mirror" rev-parse HEAD)
+    if [ "$after_head" != "$before_head" ]; then
+        echo "FAIL: true no-op created a commit" >&2
+        return 1
+    fi
+    test -f "$mirror/boundary.called" || {
+        echo "FAIL: true no-op did not run the boundary gate" >&2
+        return 1
+    }
+
+    sed -i.bak 's/rust-version = "1.96"/rust-version = "1.95"/' "$mirror/Cargo.toml"
+    rm "$mirror/Cargo.toml.bak"
+    git -C "$mirror" add Cargo.toml
+    git -C "$mirror" commit -qm "make root incompatible"
+    if "$mirror/scripts/sync-upstream.sh" \
+        --tag kernel-v9.9.7 --upstream "$upstream" --no-verify \
+        >"$TMP/noop-compat.out" 2>"$TMP/noop-compat.err"; then
+        echo "FAIL: true no-op skipped root compatibility" >&2
+        return 1
+    fi
+    grep -q "root is incompatible" "$TMP/noop-compat.err" || {
+        echo "FAIL: no-op compatibility rejection did not explain the mismatch" >&2
+        cat "$TMP/noop-compat.err" >&2
         return 1
     }
 }
@@ -164,13 +252,19 @@ EOF
 
 case "${1:-all}" in
     branch) assert_branch_cannot_impersonate_tag ;;
+    lightweight) assert_lightweight_tag_cannot_impersonate_annotated_tag ;;
     release) assert_release_updates_at_same_source_commit ;;
+    source-tag) assert_source_tag_updates_at_same_source_commit ;;
+    noop) assert_true_noop_runs_compatibility_and_boundary ;;
     freshness) assert_freshness_detects_moved_annotated_tag ;;
     all)
         assert_branch_cannot_impersonate_tag
+        assert_lightweight_tag_cannot_impersonate_annotated_tag
         assert_release_updates_at_same_source_commit
+        assert_source_tag_updates_at_same_source_commit
+        assert_true_noop_runs_compatibility_and_boundary
         assert_freshness_detects_moved_annotated_tag
         ;;
-    *) echo "usage: $0 [branch|release|freshness|all]" >&2; exit 2 ;;
+    *) echo "usage: $0 [branch|lightweight|release|source-tag|noop|freshness|all]" >&2; exit 2 ;;
 esac
 echo "mirror policy tests: PASS"

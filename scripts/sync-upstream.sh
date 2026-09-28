@@ -11,8 +11,8 @@
 #      a ../token-station sibling checkout, else a fresh temporary clone of
 #      the canonical https://github.com/ballast-ai/token-station.git).
 #   2. Requires <upstream-tag> to be a real annotated tag, then resolves its
-#      peeled commit. A same-source run is a no-op only when --release is
-#      absent or already matches compatibility.json.
+#      peeled commit. A same-source run is a no-op only when the source tag
+#      and requested release already match compatibility.json.
 #   3. Verifies the inherited workspace package/dependency/lint keys and the
 #      complete clippy.toml / rustfmt.toml against the upstream source tag.
 #      Root changes outside that inherited surface are compatible; inherited
@@ -88,6 +88,7 @@ if [ "$TAG_TYPE" != "tag" ]; then
 fi
 COMMIT=$(git -C "$UPSTREAM" rev-parse "$TAG_REF^{}")
 CURRENT=$(python3 -c "import json; print(json.load(open('compatibility.json'))['mirror']['source_commit'])")
+CURRENT_TAG=$(python3 -c "import json; print(json.load(open('compatibility.json'))['mirror']['source_tag'])")
 CURRENT_RELEASE=$(python3 -c "import json; print(json.load(open('compatibility.json'))['release']['version'])")
 
 # --- 3. root compatibility --------------------------------------------------
@@ -172,7 +173,7 @@ RELEASE_UPDATE=0
 if [ -n "$RELEASE" ] && [ "$RELEASE" != "$CURRENT_RELEASE" ]; then
     RELEASE_UPDATE=1
 fi
-if [ "$COMMIT" = "$CURRENT" ] && [ "$RELEASE_UPDATE" = 0 ]; then
+if [ "$COMMIT" = "$CURRENT" ] && [ "$TAG" = "$CURRENT_TAG" ] && [ "$RELEASE_UPDATE" = 0 ]; then
     echo "already mirroring $TAG ($COMMIT); nothing to do"
     scripts/check-boundaries.sh
     exit 0
@@ -189,7 +190,7 @@ if [ "$COMMIT" != "$CURRENT" ]; then
             -m "Sync crates/$c from token-station $TAG"
     done
 else
-    echo "source commit unchanged at $TAG ($COMMIT); updating release $CURRENT_RELEASE -> $RELEASE"
+    echo "source commit unchanged at $COMMIT; updating mirror metadata"
 fi
 
 # --- 5. byte-identity check -------------------------------------------------
