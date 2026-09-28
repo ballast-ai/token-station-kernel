@@ -33,18 +33,18 @@ jobs:
       - name: Boundary gate
         run: scripts/check-boundaries.sh
 
-  # Weekly freshness probe: fails when upstream has a newer release tag than
-  # the mirror records, telling maintainers to run scripts/sync-upstream.sh.
+  # Weekly freshness probe: fails when upstream has a newer kernel source tag
+  # than the mirror records. Application v* tags are a separate release line.
   # A failing scheduled run is the alert channel; it gates nothing else.
   upstream-freshness:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Compare mirror state with the newest upstream release tag
+      - name: Compare mirror state with the newest upstream kernel source tag
         run: |
           mirrored=$(python3 -c "import json; print(json.load(open('compatibility.json'))['mirror']['source_tag'])")
-          latest=$(git ls-remote --tags https://github.com/ballast-ai/token-station.git 'v*' \
+          latest=$(git ls-remote --tags https://github.com/ballast-ai/token-station.git 'kernel-v*' \
             | awk '{print $2}' | sed 's#refs/tags/##; s#\^{}##' | sort -uV | tail -1)
           echo "mirrored=$mirrored latest=$latest"
           if [ -z "$latest" ]; then
@@ -52,6 +52,6 @@ jobs:
             exit 1
           fi
           if [ "$mirrored" != "$latest" ]; then
-            echo "::error::mirror is at $mirrored but upstream's newest release tag is $latest — run scripts/sync-upstream.sh --tag $latest"
+            echo "::error::mirror is at $mirrored but upstream's newest kernel source tag is $latest — run scripts/sync-upstream.sh --tag $latest"
             exit 1
           fi

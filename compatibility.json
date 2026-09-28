@@ -14,15 +14,15 @@
     }
   },
   "contracts": {
-    "canonical_ir": 1,
+    "canonical_ir": 2,
     "router_config": 1,
     "error_catalog": 1,
-    "stream": 1
+    "stream": 2
   },
   "notes": {
-    "canonical_ir": "The slot token-station-south's compatibility.json reserves as null; this repository is its owner. Version 1 covers the protocol crate's public surface at the mirrored upstream state.",
+    "canonical_ir": "该槽位由本仓拥有，token-station-south 的 compatibility.json 保留为 null。版本 2 覆盖 token-station-protocol 0.4.0 的完整公共面。",
     "router_config": "Tracks router-core's CONFIG_VERSION constant; the boundary gate cross-checks the two on every run.",
     "error_catalog": "The ErrorCode catalog with retry semantics kept beside it (13 variants at this mirror state).",
-    "stream": "StreamEvent / StreamOutcome: the streaming event vocabulary and terminal-state contract."
+    "stream": "版本 2 新增带 index 的 RedactedThinking；ThinkingDelta、ThinkingSignatureDelta 与 RedactedThinking 的 index 均为供应商 content block 的序号。"
   }
 }

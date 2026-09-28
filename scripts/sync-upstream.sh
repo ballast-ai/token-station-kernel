@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Sync this mirror to a released upstream tag (docs/design/mirroring.md).
+# Sync this mirror to a released upstream kernel source tag
+# (`kernel-v*`; docs/design/mirroring.md). Application `v*` tags are not
+# mirror source releases.
 #
 #   scripts/sync-upstream.sh --tag <upstream-tag> [--upstream <path|url>]
 #                            [--release <x.y.z>] [--no-verify]
@@ -10,10 +12,10 @@
 #      the canonical https://github.com/ballast-ai/token-station.git).
 #   2. Resolves <upstream-tag> to a commit; exits 0 if the mirror already
 #      records that commit (idempotent).
-#   3. Warns when upstream's root Cargo.toml / clippy.toml / rustfmt.toml
-#      changed since the currently mirrored commit — the mirrored crates
-#      inherit workspace.* keys from OUR root manifest, so those diffs need a
-#      manual review (docs/lessons.md, "the root manifest is part of the ABI").
+#   3. Verifies the inherited workspace package/dependency/lint keys and the
+#      complete clippy.toml / rustfmt.toml against the upstream source tag.
+#      Root changes outside that inherited surface are compatible; inherited
+#      drift is fatal before subtree merging.
 #   4. `git subtree split` both prefixes at the tag commit in the upstream
 #      clone (branches kernel-split/* updated for incremental reuse), then
 #      `git subtree pull` each into this repository.
@@ -44,6 +46,10 @@ if [ -z "$TAG" ]; then
     echo "usage: scripts/sync-upstream.sh --tag <upstream-tag> [--upstream <path|url>] [--release <x.y.z>] [--no-verify]" >&2
     exit 2
 fi
+case "$TAG" in
+    kernel-v*) ;;
+    *) echo "upstream mirror source tag must match kernel-v*: $TAG" >&2; exit 2 ;;
+esac
 
 git diff-index --quiet HEAD -- || { echo "working tree is dirty; commit or stash first" >&2; exit 1; }
 
@@ -72,22 +78,90 @@ esac
 COMMIT=$(git -C "$UPSTREAM" rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null \
     || git -C "$UPSTREAM" rev-parse "$TAG^{commit}")
 CURRENT=$(python3 -c "import json; print(json.load(open('compatibility.json'))['mirror']['source_commit'])")
+
+# --- 3. root compatibility --------------------------------------------------
+UPSTREAM="$UPSTREAM" COMMIT="$COMMIT" python3 - <<'PY'
+import os
+import re
+import subprocess
+import sys
+
+upstream = os.environ["UPSTREAM"]
+commit = os.environ["COMMIT"]
+
+def upstream_bytes(path):
+    return subprocess.run(
+        ["git", "-C", upstream, "show", f"{commit}:{path}"],
+        check=True,
+        capture_output=True,
+    ).stdout
+
+def section(document, name):
+    match = re.search(
+        rf"^\[{re.escape(name)}\]\s*$\n(.*?)(?=^\[|\Z)",
+        document,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        raise ValueError(f"missing TOML section [{name}]")
+    return match.group(1)
+
+def value(document, section_name, key):
+    body = section(document, section_name)
+    match = re.search(rf"^{re.escape(key)}\s*=\s*(.+?)\s*$", body, flags=re.MULTILINE)
+    if not match:
+        raise ValueError(f"missing TOML key [{section_name}] {key}")
+    return re.sub(r"\s+", "", match.group(1))
+
+def key_values(document, section_name):
+    result = {}
+    for line in section(document, section_name).splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        key, raw = line.split("=", 1)
+        result[key.strip()] = re.sub(r"\s+", "", raw)
+    return result
+
+local = open("Cargo.toml", encoding="utf-8").read()
+remote = upstream_bytes("Cargo.toml").decode()
+
+def pair(section_name, key):
+    return value(local, section_name, key), value(remote, section_name, key)
+
+checks = {
+    "workspace.resolver": pair("workspace", "resolver"),
+    "workspace.package.edition": pair("workspace.package", "edition"),
+    "workspace.package.license": pair("workspace.package", "license"),
+    "workspace.package.rust-version": pair("workspace.package", "rust-version"),
+    "workspace.dependencies.serde": pair("workspace.dependencies", "serde"),
+    "workspace.dependencies.serde_json": pair("workspace.dependencies", "serde_json"),
+    "workspace.lints.rust": (
+        key_values(local, "workspace.lints.rust"),
+        key_values(remote, "workspace.lints.rust"),
+    ),
+    "workspace.lints.clippy": (
+        key_values(local, "workspace.lints.clippy"),
+        key_values(remote, "workspace.lints.clippy"),
+    ),
+}
+errors = [name for name, values in checks.items() if values[0] != values[1]]
+for path in ("clippy.toml", "rustfmt.toml"):
+    if open(path, "rb").read() != upstream_bytes(path):
+        errors.append(path)
+if errors:
+    print("FATAL: mirror root is incompatible with the upstream kernel source tag:", file=sys.stderr)
+    for name in errors:
+        print(f"  - {name}", file=sys.stderr)
+    sys.exit(1)
+print("root compatibility OK: workspace rust/serde/lints, clippy.toml, rustfmt.toml")
+PY
+
 if [ "$COMMIT" = "$CURRENT" ]; then
     echo "already mirroring $TAG ($COMMIT); nothing to do"
     exit 0
 fi
 echo "syncing $CURRENT -> $TAG ($COMMIT)"
-
-# --- 3. root-manifest drift warnings ---------------------------------------
-WARNED=0
-for f in Cargo.toml clippy.toml rustfmt.toml; do
-    if ! git -C "$UPSTREAM" diff --quiet "$CURRENT" "$COMMIT" -- "$f" 2>/dev/null; then
-        echo "WARNING: upstream $f changed between $CURRENT and $COMMIT."
-        echo "         The mirrored crates inherit workspace.* keys from OUR root manifest;"
-        echo "         review whether the mirror must track this (docs/lessons.md)."
-        WARNED=1
-    fi
-done
 
 # --- 4. split + pull --------------------------------------------------------
 for c in protocol router-core; do
@@ -141,9 +215,6 @@ scripts/check-boundaries.sh
 echo
 echo "sync complete. Next steps:"
 echo "  1. Review the merge:            git log --oneline -8"
-if [ "$WARNED" = 1 ]; then
-    echo "  2. RESOLVE THE WARNINGS ABOVE (root-manifest drift) before tagging."
-fi
 if [ -z "$RELEASE" ]; then
     echo "  3. Set release.version in compatibility.json (re-run with --release, or edit + amend)."
 fi
