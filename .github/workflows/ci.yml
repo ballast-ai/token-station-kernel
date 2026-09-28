@@ -42,16 +42,4 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Compare mirror state with the newest upstream kernel source tag
-        run: |
-          mirrored=$(python3 -c "import json; print(json.load(open('compatibility.json'))['mirror']['source_tag'])")
-          latest=$(git ls-remote --tags https://github.com/ballast-ai/token-station.git 'kernel-v*' \
-            | awk '{print $2}' | sed 's#refs/tags/##; s#\^{}##' | sort -uV | tail -1)
-          echo "mirrored=$mirrored latest=$latest"
-          if [ -z "$latest" ]; then
-            echo "::error::could not list upstream tags"
-            exit 1
-          fi
-          if [ "$mirrored" != "$latest" ]; then
-            echo "::error::mirror is at $mirrored but upstream's newest kernel source tag is $latest — run scripts/sync-upstream.sh --tag $latest"
-            exit 1
-          fi
+        run: scripts/check-upstream-freshness.sh

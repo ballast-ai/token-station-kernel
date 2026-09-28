@@ -10,8 +10,9 @@
 #   1. Refuses to run on a dirty tree; resolves the upstream clone (default:
 #      a ../token-station sibling checkout, else a fresh temporary clone of
 #      the canonical https://github.com/ballast-ai/token-station.git).
-#   2. Resolves <upstream-tag> to a commit; exits 0 if the mirror already
-#      records that commit (idempotent).
+#   2. Requires <upstream-tag> to be a real annotated tag, then resolves its
+#      peeled commit. A same-source run is a no-op only when --release is
+#      absent or already matches compatibility.json.
 #   3. Verifies the inherited workspace package/dependency/lint keys and the
 #      complete clippy.toml / rustfmt.toml against the upstream source tag.
 #      Root changes outside that inherited surface are compatible; inherited
@@ -74,10 +75,20 @@ case "$UPSTREAM" in
         ;;
 esac
 
-# --- 2. resolve the tag; idempotence ---------------------------------------
-COMMIT=$(git -C "$UPSTREAM" rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null \
-    || git -C "$UPSTREAM" rev-parse "$TAG^{commit}")
+# --- 2. resolve the annotated tag; determine idempotence -------------------
+TAG_REF="refs/tags/$TAG"
+if ! git -C "$UPSTREAM" show-ref --verify --quiet "$TAG_REF"; then
+    echo "upstream mirror source must be an annotated tag: $TAG_REF" >&2
+    exit 1
+fi
+TAG_TYPE=$(git -C "$UPSTREAM" cat-file -t "$TAG_REF")
+if [ "$TAG_TYPE" != "tag" ]; then
+    echo "upstream mirror source must be an annotated tag: $TAG_REF is $TAG_TYPE" >&2
+    exit 1
+fi
+COMMIT=$(git -C "$UPSTREAM" rev-parse "$TAG_REF^{}")
 CURRENT=$(python3 -c "import json; print(json.load(open('compatibility.json'))['mirror']['source_commit'])")
+CURRENT_RELEASE=$(python3 -c "import json; print(json.load(open('compatibility.json'))['release']['version'])")
 
 # --- 3. root compatibility --------------------------------------------------
 UPSTREAM="$UPSTREAM" COMMIT="$COMMIT" python3 - <<'PY'
@@ -157,20 +168,29 @@ if errors:
 print("root compatibility OK: workspace rust/serde/lints, clippy.toml, rustfmt.toml")
 PY
 
-if [ "$COMMIT" = "$CURRENT" ]; then
+RELEASE_UPDATE=0
+if [ -n "$RELEASE" ] && [ "$RELEASE" != "$CURRENT_RELEASE" ]; then
+    RELEASE_UPDATE=1
+fi
+if [ "$COMMIT" = "$CURRENT" ] && [ "$RELEASE_UPDATE" = 0 ]; then
     echo "already mirroring $TAG ($COMMIT); nothing to do"
+    scripts/check-boundaries.sh
     exit 0
 fi
-echo "syncing $CURRENT -> $TAG ($COMMIT)"
 
 # --- 4. split + pull --------------------------------------------------------
-for c in protocol router-core; do
-    echo "splitting crates/$c at $TAG ..."
-    SPLIT=$(git -C "$UPSTREAM" subtree split --prefix="crates/$c" "$COMMIT" 2>/dev/null)
-    git -C "$UPSTREAM" branch -f "kernel-split/$c" "$SPLIT"
-    git subtree pull --prefix="crates/$c" "$UPSTREAM" "kernel-split/$c" \
-        -m "Sync crates/$c from token-station $TAG"
-done
+if [ "$COMMIT" != "$CURRENT" ]; then
+    echo "syncing $CURRENT -> $TAG ($COMMIT)"
+    for c in protocol router-core; do
+        echo "splitting crates/$c at $TAG ..."
+        SPLIT=$(git -C "$UPSTREAM" subtree split --prefix="crates/$c" "$COMMIT" 2>/dev/null)
+        git -C "$UPSTREAM" branch -f "kernel-split/$c" "$SPLIT"
+        git subtree pull --prefix="crates/$c" "$UPSTREAM" "kernel-split/$c" \
+            -m "Sync crates/$c from token-station $TAG"
+    done
+else
+    echo "source commit unchanged at $TAG ($COMMIT); updating release $CURRENT_RELEASE -> $RELEASE"
+fi
 
 # --- 5. byte-identity check -------------------------------------------------
 for c in protocol router-core; do
