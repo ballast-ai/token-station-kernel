@@ -43,15 +43,15 @@ exact per-crate tree hashes — is recorded in
 `scripts/check-boundaries.sh`.
 
 镜像源发布点使用独立的 `kernel-v*` 标签族，避免把上游应用的 `v*`
-发布误判为 kernel 源码发布点。当前镜像源为 `kernel-v0.4.0`；历史切点仍保留在
+发布误判为 kernel 源码发布点。当前镜像源为 `kernel-v0.5.0`；历史切点仍保留在
 提交记录与兼容性清单中。
 
 ## Consuming
 
 ```toml
 [dependencies]
-token-station-protocol = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.3.0" }
-token-station-router-core = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.3.0" }
+token-station-protocol = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.4.0" }
+token-station-router-core = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.4.0" }
 ```
 
 Both crates resolve from one source, so their shared protocol types are one
