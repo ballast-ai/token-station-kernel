@@ -14,13 +14,13 @@
     }
   },
   "contracts": {
-    "canonical_ir": 2,
+    "canonical_ir": 3,
     "router_config": 1,
     "error_catalog": 1,
     "stream": 2
   },
   "notes": {
-    "canonical_ir": "\u8be5\u69fd\u4f4d\u7531\u672c\u4ed3\u62e5\u6709\uff0ctoken-station-south \u7684 compatibility.json \u4fdd\u7559\u4e3a null\u3002\u7248\u672c 2 \u8986\u76d6 token-station-protocol 0.4.0 \u7684\u5b8c\u6574\u516c\u5171\u9762\u3002",
+    "canonical_ir": "\u8be5\u69fd\u4f4d\u7531\u672c\u4ed3\u62e5\u6709\uff0ctoken-station-south \u7684 compatibility.json \u4fdd\u7559\u4e3a null\u3002\u7248\u672c 3 \u8986\u76d6 token-station-protocol 0.5.0 \u7684\u5b8c\u6574\u516c\u5171\u9762\uff1adeclared \u4e0e host_values \u6539\u4e3a ComponentValues \u7c7b\u578b\uff0c\u65b0\u589e Auth::BearerAndHeader \u4e0e\u5f00\u653e\u7684\u51ed\u8bc1\u5934\u540d\uff0cUsage \u65b0\u589e explicit_cache_read_tokens\u3002",
     "router_config": "Tracks router-core's CONFIG_VERSION constant; the boundary gate cross-checks the two on every run.",
     "error_catalog": "The ErrorCode catalog with retry semantics kept beside it (13 variants at this mirror state).",
     "stream": "\u7248\u672c 2 \u7684 reasoning \u4e8b\u4ef6\u4fdd\u7559 index \u4f5c\u4e3a choice index\uff0c\u5e76\u65b0\u589e block_index \u8868\u793a\u4f9b\u5e94\u5546 content block \u5e8f\u53f7\uff1b\u65e7 wire \u7f3a\u5c11 block_index \u65f6\u517c\u5bb9\u89e3\u7801\u4e3a 0\u3002"
