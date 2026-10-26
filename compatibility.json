@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
   "release": {
-    "version": "0.5.0",
+    "version": "0.6.0",
     "stability": "pre-1.0_mirror"
   },
   "mirror": {
     "source_repository": "https://github.com/ballast-ai/token-station",
-    "source_tag": "kernel-v0.6.0",
-    "source_commit": "c0bca10c2d9f9a439680865feb65c9edf598fc65",
+    "source_tag": "kernel-v0.7.0",
+    "source_commit": "a04925518b95c6557374252db7fbe7f026688bde",
     "subtrees": {
-      "crates/protocol": "3c8dd8bc7aa0045f2025591554d90c21cafd03b2",
-      "crates/router-core": "327b828ef28fca865ea9ac76784a59abd1b8bb08"
+      "crates/protocol": "0b5099bb04a24e59773e785a9919562257519105",
+      "crates/router-core": "5289a7851ccfbf01a4f581ab31de318b978c9338"
     }
   },
   "contracts": {
