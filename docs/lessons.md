@@ -19,15 +19,18 @@ track an upstream change to any of these (or to `clippy.toml` / `rustfmt.toml`)
 silently changes how identical source compiles or lints here. Treat upstream's
 root-manifest diffs as part of every sync review, not just the `crates/` diff.
 
-## 2026-09-29 — 标签名必须同时校验对象类型与 peeled commit
+## 2026-09-29 — Check a tag's object type and its peeled commit
 
-`rev-parse <name>^{commit}` 会接受同名分支，单独比较标签名也无法发现远端移动了
-同名标签。镜像入口必须只解析 `refs/tags/<name>`，确认其对象类型为 annotated
-`tag`；新鲜度检查还要读取远端 `refs/tags/<name>^{}`，将 peeled commit 与
-`compatibility.json` 的 `source_commit` 精确对账。
+`rev-parse <name>^{commit}` also accepts a branch with the same name. Comparing
+tag names alone cannot detect a remote tag that moved. The mirror entry point
+must resolve only `refs/tags/<name>` and confirm that the object is an annotated
+`tag`. The freshness check must also read the remote `refs/tags/<name>^{}` and
+compare the peeled commit exactly with `source_commit` in `compatibility.json`.
 
-## 2026-09-29 — 幂等条件要覆盖操作的全部目标状态
+## 2026-09-29 — An idempotence check must cover the whole target state
 
-同步源提交相同只说明 subtree 无需更新，不代表整个同步请求无事可做。
-`--release` 也是目标状态的一部分；只有源提交相同，且 release 未指定或已经一致时
-才能 no-op。即使 no-op，也必须继续执行边界门，不能让幂等捷径绕过漂移检查。
+An unchanged source commit means only that the subtrees need no update. It does
+not mean the sync request has nothing to do. `--release` is part of the target
+state too. The sync can be a no-op only when the source commit is unchanged and
+the release is absent or already equal. Even a no-op must still run the boundary
+gate, so the shortcut cannot skip the drift checks.
