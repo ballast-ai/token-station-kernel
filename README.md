@@ -42,16 +42,17 @@ exact per-crate tree hashes — is recorded in
 [`compatibility.json`](compatibility.json) and enforced by
 `scripts/check-boundaries.sh`.
 
-镜像源发布点使用独立的 `kernel-v*` 标签族，避免把上游应用的 `v*`
-发布误判为 kernel 源码发布点。当前镜像源为 `kernel-v0.5.0`；历史切点仍保留在
-提交记录与兼容性清单中。
+The mirror follows a separate upstream tag family, `kernel-v*`, so that an
+application release tag (`v*`) is never taken for a kernel source release. The
+current source tag is `mirror.source_tag` in `compatibility.json`. Earlier cut
+points remain in the commit history and in that manifest.
 
 ## Consuming
 
 ```toml
 [dependencies]
-token-station-protocol = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.4.0" }
-token-station-router-core = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.4.0" }
+token-station-protocol = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.6.0" }
+token-station-router-core = { git = "https://github.com/ballast-ai/token-station-kernel.git", tag = "v0.6.0" }
 ```
 
 Both crates resolve from one source, so their shared protocol types are one

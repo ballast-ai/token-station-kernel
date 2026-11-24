@@ -21,15 +21,16 @@ Consequences:
   byte-identical to a recorded upstream state; the boundary gate fails on any
   drift.
 - Code pull requests are not accepted here (see CONTRIBUTING.md).
-- 镜像只跟随上游已发布的 kernel 源码标签（`kernel-v*`），不跟随任意提交或
-  应用发布标签；因此每个镜像状态都对应上游明确命名的 kernel 源码状态。
+- The mirror follows only released upstream kernel source tags (`kernel-v*`),
+  never an arbitrary commit or an application release tag. So every mirror
+  state matches a named upstream kernel source state.
 
 ## Cut point
 
 The initial cut is upstream tag **`v1.1.3`** (commit
-`9864e79c48c1a05c17db7ecb0b34cd9179a016f1`)。这是独立标签族建立前的历史
-切点；当前及后续切点统一使用 **`kernel-v*`**。当前切点记录在
-`compatibility.json` 的
+`9864e79c48c1a05c17db7ecb0b34cd9179a016f1`). That cut predates the separate
+tag family. The current and later cuts use **`kernel-v*`**. The current cut is
+recorded in `compatibility.json` under
 `mirror.*` together with the two subtree tree-hashes, which is what makes
 "byte-identical" a checkable claim rather than a promise.
 
@@ -41,11 +42,13 @@ commit, not just the tag.
 
 ## Sync procedure
 
-下述流程由 **`scripts/sync-upstream.sh --tag <kernel-v-tag>`** 自动执行：脚本
-幂等、拒绝应用 `v*` 标签、校验字节一致性、更新 `compatibility.json` 并运行
-门禁，但把评审、打标签和推送留给维护者。每周 `upstream-freshness` CI 在上游
-出现更新的 `kernel-v*` 源码标签时失败，并明确忽略应用 `v*` 发布。下方保留
-手工命令，用于解释脚本实际执行的步骤。
+**`scripts/sync-upstream.sh --tag <kernel-v-tag>`** runs the procedure below.
+The script is idempotent, refuses an application `v*` tag, verifies byte
+identity, updates `compatibility.json` and runs the gates. It leaves review,
+tagging and the push to the maintainer. The weekly `upstream-freshness` CI job
+fails when upstream has a newer `kernel-v*` source tag, and it ignores
+application `v*` releases. The manual commands below stay to explain what the
+script does.
 
 Initial import (already done, kept for reference):
 
@@ -94,7 +97,8 @@ whenever a sync changes them — plus upstream's `clippy.toml` and
 both repositories. The two deliberate divergences are `repository` (points
 here) and `publish = true`.
 
-同步脚本会机械比较上述继承项以及完整的 `clippy.toml`、`rustfmt.toml`。
-上游根清单即使因应用成员或 south 依赖而变化，只要 kernel 继承面完全相容，脚本才
-继续；任何继承面漂移都会在 subtree 合并前硬失败。本仓当前根配置已与
-`kernel-v0.4.0` 的这些项目逐项相容。
+The sync script compares these inherited items, and the whole `clippy.toml`
+and `rustfmt.toml`, mechanically. The upstream root manifest can change for
+application members or South dependencies. The script continues only when the
+inherited kernel surface still matches, and any drift in it fails hard before
+the subtree merge. The script checks this on every sync.
